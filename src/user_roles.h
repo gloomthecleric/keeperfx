@@ -34,6 +34,7 @@ enum UserRole {
 const char *user_role_name(int8_t role);
 const char *user_role_column_title(void);
 TbBool user_has_archon_role(NetUserId user);
+NetUserId seat_user_with_role(PlayerNumber plyr_idx, int8_t role);
 void resolve_seat_roles(const int8_t player_slots[MAX_NET_USERS], const int8_t lobby_roles[MAX_NET_USERS], int8_t roles[MAX_NET_USERS]);
 void apply_user_roles(const int8_t roles[MAX_NET_USERS]);
 void restore_user_role_after_reseat(NetUserId user, int8_t previous_role);

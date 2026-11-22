@@ -72,6 +72,7 @@
 #include "thing_traps.h"
 #include "vidfade.h"
 #include "vidmode.h"
+#include "soul_transfer_gui.h"
 
 #include <math.h>
 #include "post_inc.h"
@@ -5376,6 +5377,24 @@ void draw_status_sprites(long scrpos_x, long scrpos_y, struct Thing *thing)
     {
         float flower_distance = 1280; // Higher number means flower is further away from creature.
         scrpos_y -= (int)((flower_distance / spr->SHeight) * ((float)camera_zoom / FRONTVIEW_CAMERA_ZOOM_MAX));
+    }
+
+    // Gloomlight: the vessel and sacrifice of the local team's soul transfer show a marker instead of their activity
+    const struct TbSprite *soul_spr = soul_transfer_marker_sprite(thing);
+    if (soul_spr != NULL)
+    {
+        state_spridx = 0;
+        anger_spridx = 0;
+        spr = get_button_sprite(GBS_creature_states_cloud);
+        w = (base_size * spr->SWidth * bs_units_per_px / 16) >> 13;
+        h = (base_size * spr->SHeight * bs_units_per_px / 16) >> 13;
+        LbSpriteDrawScaled(scrpos_x - w / 2, scrpos_y - h, spr, w, h);
+        RendererClearDrawFlags(Lb_SPRITE_TRANSPAR8);
+        RendererClearDrawFlags(Lb_SPRITE_TRANSPAR4);
+        int icon_h = h * 3 / 5;
+        int icon_w = (soul_spr->SHeight > 0) ? (icon_h * soul_spr->SWidth / soul_spr->SHeight) : icon_h;
+        LbSpriteDrawScaled(scrpos_x - icon_w / 2, scrpos_y - h + (h - icon_h) / 2, soul_spr, icon_w, icon_h);
+        h_add += h;
     }
 
     if (state_spridx || anger_spridx)

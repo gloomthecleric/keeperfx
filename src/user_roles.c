@@ -55,6 +55,21 @@ TbBool user_has_archon_role(NetUserId user)
     return (ustate->role == UsrRole_Archon);
 }
 
+/** The lowest present user of a seat with the given role, or -1. */
+NetUserId seat_user_with_role(PlayerNumber plyr_idx, int8_t role)
+{
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++) {
+        const struct UserState *ustate = get_user_state(user);
+        if (!user_present(user) || user_state_invalid(ustate)) {
+            continue;
+        }
+        if ((ustate->player_id == plyr_idx) && (ustate->role == role)) {
+            return user;
+        }
+    }
+    return -1;
+}
+
 /** Turns the lobby's role choices into the roles used in the game.
  * Unset or invalid choices become Keeper. Each seat then gets the 2v2 shape:
  * - at least one Keeper: if every user of a seat chose Archon, its lowest user becomes the Keeper;

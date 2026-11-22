@@ -45,6 +45,7 @@ struct SoulTransfer {
 #pragma pack()
 
 /******************************************************************************/
+struct SoulTransfer *get_team_soul_transfer(PlayerNumber plyr_idx);
 void process_soul_transfer(PlayerNumber plyr_idx);
 TbBool soul_transfer_take_archon_pick(NetUserId user, const struct Packet *pckt);
 void soul_transfer_archon_pick(NetUserId user, struct Thing *thing);

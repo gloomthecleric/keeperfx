@@ -71,6 +71,7 @@
 #include "creature_instances.h"
 #include "packets.h"
 #include "custom_sprites.h"
+#include "soul_transfer_gui.h"
 #include "keeperfx.hpp"
 #include "post_inc.h"
 
@@ -1083,6 +1084,7 @@ void redraw_display(void)
         LbTextSetWindow(0/pixel_size, 0/pixel_size, MyScreenWidth/pixel_size, MyScreenHeight/pixel_size);
     }
     draw_archon_co_users();
+    draw_soul_transfer_hud();
     draw_co_user_cursors();
     draw_eastegg();
     if (map_fade == PVT_None) {
