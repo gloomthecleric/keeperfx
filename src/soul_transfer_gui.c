@@ -18,6 +18,7 @@
 #include "kfx/renderer/RendererManager.h"
 #include "soul_transfer_gui.h"
 
+#include "bflib_keybrd.h"
 #include "bflib_sprfnt.h"
 #include "bflib_vidraw.h"
 #include "bflib_video.h"
@@ -27,6 +28,7 @@
 #include "config_strings.h"
 #include "config_terrain.h"
 #include "creature_control.h"
+#include "creature_graphics.h"
 #include "custom_sprites.h"
 #include "dungeon_data.h"
 #include "frontend.h"
@@ -35,8 +37,11 @@
 #include "sprites.h"
 #include "game_legacy.h"
 #include "gui_draw.h"
+#include "gui_frontbtns.h"
 #include "gui_frontmenu.h"
 #include "gui_msgs.h"
+#include "kjm_input.h"
+#include "packets.h"
 #include "player_data.h"
 #include "room_data.h"
 #include "soul_transfer.h"
@@ -266,8 +271,8 @@ void draw_soul_transfer_hud(void)
         switch (st->phase)
         {
         case SoulTr_AwaitKeeper:
-            if ((target == NULL) || (sacrifice == NULL)) {
-                return;
+            if ((target == NULL) || (sacrifice == NULL) || menu_is_active(GMnu_SOUL_TRANSFER)) {
+                return; // the popup shows the request
             }
             snprintf(lines[count++], SOUL_TRANSFER_HUD_LINE_LEN, "SOUL TRANSFER");
             creature_short_name(target, name, sizeof(name));
@@ -293,6 +298,229 @@ void draw_soul_transfer_hud(void)
         }
     }
     draw_status_box(lines, count);
+}
+
+/******************************************************************************/
+// The Keeper's comparison popup (GMnu_SOUL_TRANSFER): vessel and sacrifice side by side,
+// a countdown bar, and approve / refuse buttons. Not modal: the Keeper keeps playing around it.
+// Y and N are its hotkeys and also work while it isn't shown (eg. while the Keeper possesses).
+
+/** The deadline of the request the local Keeper already answered, so the popup doesn't reopen
+ * in the turns before the answer is processed. */
+static GameTurn answered_deadline = 0;
+/** An answer waiting for a free packet action slot: -1 none, 0 refuse, 1 approve. */
+static int pending_answer = -1;
+
+static void queue_answer(TbBool approve)
+{
+    PlayerNumber plyr_idx;
+    const struct SoulTransfer *st;
+    if ((local_team_user(&plyr_idx, &st) == NULL) || !soul_transfer_awaits_local_keeper()) {
+        return;
+    }
+    answered_deadline = st->phase_deadline;
+    pending_answer = approve ? 1 : 0;
+}
+
+static void soul_transfer_popup_approve(struct GuiButton *gbtn)
+{
+    SYNCLOG("Soul transfer popup: approve clicked");
+    queue_answer(true);
+}
+
+static void soul_transfer_popup_refuse(struct GuiButton *gbtn)
+{
+    SYNCLOG("Soul transfer popup: refuse clicked");
+    queue_answer(false);
+}
+
+/** The approve / refuse button: the usual button sprite, plus a gold frame around its clickable area
+ * while the mouse is over it. */
+static void draw_soul_transfer_answer_button(struct GuiButton *gbtn)
+{
+    gui_area_normal_button(gbtn);
+    if (((gbtn->flags & LbBtnF_MouseOver) == 0) || ((gbtn->flags & LbBtnF_Enabled) == 0)) {
+        return;
+    }
+    const unsigned long flags_mem = RendererGetDrawFlags();
+    RendererSetDrawFlags(0);
+    const long t = max(2L, (long)(2 * units_per_pixel_ui / 16));
+    const long x = gbtn->pos_x - t;
+    const long y = gbtn->pos_y - t;
+    const long w = gbtn->width + 2 * t;
+    const long h = gbtn->height + 2 * t;
+    // Deep amber gold, closer to the popup's ornate border than a pure yellow.
+    const TbPixel gold = colours[13][9][2];
+    LbDrawBox(x, y, w, t, gold);
+    LbDrawBox(x, y + h - t, w, t, gold);
+    LbDrawBox(x, y, t, h, gold);
+    LbDrawBox(x + w - t, y, t, h, gold);
+    RendererSetDrawFlags(flags_mem);
+}
+
+/** Draws one side of the comparison: label, portrait in a hex frame, name, level, value and health. */
+static void draw_popup_creature(const struct Thing *thing, const char *label, long x, long y, long w, long h, int tx_units_per_px)
+{
+    const long line_h = LbTextLineHeight() * tx_units_per_px / 16;
+    RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
+    LbTextSetWindow(x, y, w, line_h);
+    LbTextDrawResized(0, 0, tx_units_per_px, label);
+    long text_y = y + line_h;
+    // portrait, framed like the creature query panel
+    const struct TbSprite *frame = get_panel_sprite(GPS_rpanel_frame_double_hex_med);
+    long frame_w = w * 55 / 100;
+    long frame_h = h - 5 * line_h;
+    if ((frame != NULL) && (frame->SWidth > 0) && (frame->SHeight > 0) && (frame_h > 0)) {
+        int ps_units_per_px = min((int)(frame_w * 16 / frame->SWidth), (int)(frame_h * 16 / frame->SHeight));
+        frame_w = frame->SWidth * ps_units_per_px / 16;
+        frame_h = frame->SHeight * ps_units_per_px / 16;
+        const long frame_x = x + (w - frame_w) / 2;
+        const long frame_y = text_y + line_h / 4;
+        const long spr_idx = get_creature_model_graphics(thing->model, CGI_QuerySymbol);
+        if (spr_idx > 0) {
+            const struct TbSprite *portrait = get_button_sprite_for_player(spr_idx, thing->owner);
+            if ((portrait != NULL) && (portrait->SWidth > 0)) {
+                const int bs_units_per_px = (frame_w * 67 / 100) * 16 / portrait->SWidth;
+                const long pw = portrait->SWidth * bs_units_per_px / 16;
+                const long ph = portrait->SHeight * bs_units_per_px / 16;
+                LbSpriteDrawResized(frame_x + (frame_w - pw) / 2, frame_y + (frame_h - ph) / 2, bs_units_per_px, portrait);
+            }
+        }
+        draw_gui_panel_sprite_left(frame_x, frame_y, ps_units_per_px, GPS_rpanel_frame_double_hex_med);
+        text_y = frame_y + frame_h + line_h / 4;
+    }
+    const struct CreatureModelConfig *crconf = creature_stats_get_from_thing(thing);
+    const struct CreatureControl *cctrl = creature_control_get_from_thing(thing);
+    const long health_pct = (cctrl->max_health > 0) ? (100 * (long)thing->health / cctrl->max_health) : 0;
+    char text[SOUL_TRANSFER_HUD_LINE_LEN];
+    const char *lines[4];
+    char level_text[32];
+    char worth_text[48];
+    char health_text[32];
+    snprintf(level_text, sizeof(level_text), "Level %d", (int)cctrl->exp_level + 1);
+    snprintf(worth_text, sizeof(worth_text), "Worth %ld", get_creature_thing_score(thing));
+    snprintf(health_text, sizeof(health_text), "Health %ld%%", health_pct);
+    snprintf(text, sizeof(text), "%s", get_string(crconf->namestr_idx));
+    lines[0] = text;
+    lines[1] = level_text;
+    lines[2] = worth_text;
+    lines[3] = health_text;
+    for (int i = 0; i < 4; i++) {
+        LbTextSetWindow(x, text_y + i * line_h, w, line_h);
+        LbTextDrawResized(0, 0, tx_units_per_px, lines[i]);
+    }
+    RendererSetDrawFlags(0);
+}
+
+/** Draw callback of the popup's information area. */
+static void draw_soul_transfer_popup(struct GuiButton *gbtn)
+{
+    PlayerNumber plyr_idx;
+    const struct SoulTransfer *st;
+    if ((local_team_user(&plyr_idx, &st) == NULL) || (st->phase != SoulTr_AwaitKeeper)) {
+        return;
+    }
+    const struct Thing *target = pair_creature(st->target_idx, st->target_creation, plyr_idx);
+    const struct Thing *sacrifice = pair_creature(st->sacrifice_idx, st->sacrifice_creation, plyr_idx);
+    if ((target == NULL) || (sacrifice == NULL)) {
+        return;
+    }
+    LbTextSetFont(winfont);
+    // the font height decides everything else; the widest block of text is about 12 characters per column
+    int tx_units_per_px = gbtn->height * 16 / (13 * LbTextLineHeight());
+    tx_units_per_px = max(4, tx_units_per_px);
+    const long line_h = LbTextLineHeight() * tx_units_per_px / 16;
+    const long x = gbtn->scr_pos_x;
+    const long y = gbtn->scr_pos_y;
+    const long w = gbtn->width;
+    const long h = gbtn->height;
+    // title
+    RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
+    LbTextSetWindow(x, y, w, line_h);
+    LbTextDrawResized(0, 0, tx_units_per_px, "SOUL TRANSFER");
+    RendererSetDrawFlags(0);
+    // the two creatures, with room left for the countdown below them
+    const long body_y = y + line_h * 3 / 2;
+    const long body_h = h - line_h * 3 / 2 - line_h * 2;
+    draw_popup_creature(target, "Vessel", x, body_y, w / 2, body_h, tx_units_per_px);
+    draw_popup_creature(sacrifice, "Sacrifice", x + w / 2, body_y, w - w / 2, body_h, tx_units_per_px);
+    // countdown bar: full at the request, empty when both creatures die
+    const GameTurnDelta total = max((GameTurnDelta)1, game.conf.rules[plyr_idx].magic.soul_transfer_decision_time);
+    const GameTurn now = get_gameturn();
+    const GameTurnDelta left = (st->phase_deadline > now) ? (GameTurnDelta)(st->phase_deadline - now) : 0;
+    const long bar_x = x + w / 10;
+    const long bar_w = w - w / 5;
+    const long bar_h = max(4L, line_h / 2);
+    const long bar_y = y + h - line_h - bar_h - line_h / 4;
+    LbDrawBox(bar_x, bar_y, bar_w, bar_h, colours[0][0][0]);
+    const long fill_w = bar_w * left / total;
+    if (fill_w > 0) {
+        // red, flashing in the last two seconds
+        const TbBool flash = (left < 2 * turns_per_second) && ((now / 4) % 2 == 0);
+        LbDrawBox(bar_x, bar_y, fill_w, bar_h, flash ? colours[15][15][0] : colours[15][0][0]);
+    }
+    char text[SOUL_TRANSFER_HUD_LINE_LEN];
+    snprintf(text, sizeof(text), "[Y] approve   %ds   [N] refuse", seconds_left(st->phase_deadline));
+    RendererSetDrawFlags(Lb_TEXT_HALIGN_CENTER);
+    LbTextSetWindow(x, y + h - line_h, w, line_h);
+    LbTextDrawResized(0, 0, tx_units_per_px, text);
+    RendererSetDrawFlags(0);
+    LbTextSetWindow(0, 0, MyScreenWidth, MyScreenHeight);
+}
+
+struct GuiButtonInit soul_transfer_buttons[] = {
+  { 0,  0, 0, 0, NULL,                      NULL, NULL, 0,  10,  10,  10,  10, 300, 200, draw_soul_transfer_popup, 0, GUIStr_Empty, 0, {0}, 0, NULL },
+  // The tick/cross sprites have empty space above the glyph: drawn from scr_pos, the visible glyph sits about
+  // (+2,+34) lower. Armageddon's confirmation uses (+2,+34) and 46x32; ours is trimmed to (+2,+32) and 46x28 so
+  // the hover frame hugs the glyph (32 tall ran past its bottom edge).
+  { 0,  0, 0, 1, soul_transfer_popup_refuse,  NULL, NULL, 0,  90, 218,  92, 250,  46,  28, draw_soul_transfer_answer_button, 46, GUIStr_Empty, 0, {0}, 0, NULL },
+  { 0,  0, 0, 1, soul_transfer_popup_approve, NULL, NULL, 0, 184, 218, 186, 250,  46,  28, draw_soul_transfer_answer_button, 48, GUIStr_Empty, 0, {0}, 0, NULL },
+  {-1,  0, 0, 0, NULL,                      NULL, NULL, 0,   0,   0,   0,   0,   0,   0, NULL,                     0, 0,            0, {0}, 0, NULL },
+};
+
+// Monopoly like the Armageddon confirmation: while it's up only its buttons take clicks (other menus' buttons
+// could otherwise take them). Clicks on the dungeon itself still work.
+struct GuiMenu soul_transfer_menu =
+ { GMnu_SOUL_TRANSFER, 0, 4, soul_transfer_buttons, POS_GAMECTR, POS_GAMECTR, 320, 260, gui_pretty_background, 0, NULL, NULL, 0, 1, 0,};
+
+/** Local input of the Keeper each frame: opens or closes the popup, sends a queued answer, handles Y/N.
+ * @return True if a key was used. */
+TbBool soul_transfer_keeper_inputs(void)
+{
+    PlayerNumber plyr_idx;
+    const struct SoulTransfer *st;
+    const struct UserState *ustate = local_team_user(&plyr_idx, &st);
+    const TbBool awaiting = (ustate != NULL) && soul_transfer_awaits_local_keeper();
+    const TbBool unanswered = awaiting && (st->phase_deadline != answered_deadline);
+    const TbBool show = unanswered && (ustate->view_type != PVT_CreatureContrl) && (ustate->view_type != PVT_CreaturePasngr);
+    if (show && !menu_is_active(GMnu_SOUL_TRANSFER)) {
+        turn_on_menu(GMnu_SOUL_TRANSFER);
+    } else if (!show && menu_is_active(GMnu_SOUL_TRANSFER)) {
+        turn_off_menu(GMnu_SOUL_TRANSFER);
+    }
+    if (pending_answer >= 0) {
+        struct PlayerInfo *player = get_my_player();
+        if (!awaiting) {
+            pending_answer = -1;
+        } else if (get_players_packet_action(player) == PckA_None) {
+            set_players_packet_action(player, PckA_SoulTransferAnswer, pending_answer, 0, 0, 0);
+            pending_answer = -1;
+        }
+    }
+    if (!unanswered) {
+        return false;
+    }
+    if (is_key_pressed(KC_Y, KMod_NONE)) {
+        clear_key_pressed(KC_Y);
+        queue_answer(true);
+        return true;
+    }
+    if (is_key_pressed(KC_N, KMod_NONE)) {
+        clear_key_pressed(KC_N);
+        queue_answer(false);
+        return true;
+    }
+    return false;
 }
 
 /** The icon for the thought cloud of a creature in the local team's soul transfer, or NULL.

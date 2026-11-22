@@ -87,7 +87,7 @@
 #include "timer.h"
 
 #include "keeperfx.hpp"
-#include "soul_transfer.h"
+#include "soul_transfer_gui.h"
 
 #include <math.h>
 #include "post_inc.h"
@@ -1473,23 +1473,10 @@ static long get_dungeon_small_map_inputs(struct Packet *pckt)
     return get_small_map_inputs(x, y, zoom, pckt);
 }
 
-/** Keeper hotkeys for a pending soul transfer: Y approves, N refuses.
- * TODO: pass 3 adds the comparison popup with buttons; these stay as its hotkeys.
- */
+/** Gloomlight: the Keeper's soul transfer popup and its Y/N hotkeys (soul_transfer_gui.c). */
 static TbBool get_soul_transfer_keeper_inputs(void)
 {
-    if (!soul_transfer_awaits_local_keeper())
-        return false;
-    TbBool approve = is_key_pressed(KC_Y, KMod_NONE);
-    TbBool refuse = is_key_pressed(KC_N, KMod_NONE);
-    if (!approve && !refuse)
-        return false;
-    struct PlayerInfo* player = get_my_player();
-    if (get_players_packet_action(player) != PckA_None)
-        return false;
-    set_players_packet_action(player, PckA_SoulTransferAnswer, approve ? 1 : 0, 0, 0, 0);
-    clear_key_pressed(approve ? KC_Y : KC_N);
-    return true;
+    return soul_transfer_keeper_inputs();
 }
 
 static TbBool get_dungeon_control_action_inputs(void)

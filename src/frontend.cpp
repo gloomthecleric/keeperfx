@@ -95,6 +95,7 @@
 #include "sprites.h"
 #include "moonphase.h"
 #include "config_keeperfx.h"
+#include "soul_transfer_gui.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -219,6 +220,7 @@ struct GuiMenu *menu_list[] = {
     &room_menu2,
     &trap_menu2,
     &frontend_skirmish_lobby_menu,
+    &soul_transfer_menu,//50
     NULL,
 };
 
@@ -2097,6 +2099,7 @@ short is_toggleable_menu(short mnu_idx)
   case GMnu_FECAMPAIGN_SELECT:
   case GMnu_FEERROR_BOX:
   case GMnu_SKIRMISH_LOBBY:
+  case GMnu_SOUL_TRANSFER:
       return false;
   default:
       return true;

@@ -76,6 +76,7 @@ enum GUI_Menus {
   GMnu_ROOM2              = 47,
   GMnu_TRAP2              = 48,
   GMnu_SKIRMISH_LOBBY     = 49,
+  GMnu_SOUL_TRANSFER      = 50, /**< Gloomlight: the Keeper's soul transfer comparison popup */
 };
 
 #define MENU_INVALID_ID -1

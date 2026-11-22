@@ -22,7 +22,11 @@ extern "C" {
 /******************************************************************************/
 struct Thing;
 struct TbSprite;
+struct GuiMenu;
 
+extern struct GuiMenu soul_transfer_menu;
+
+TbBool soul_transfer_keeper_inputs(void);
 void soul_transfer_hint(NetUserId user, const char *fmt_str, ...);
 void soul_transfer_smack_back(NetUserId archon);
 void soul_transfer_cooldown_alarm(NetUserId archon);
