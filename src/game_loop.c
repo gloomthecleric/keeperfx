@@ -93,6 +93,10 @@ extern long double time_since_last_draw;
 extern long double multiplayer_clock_adjust;
 extern long double host_packet_received;
 
+/** Bounds of a client's clock correction towards the host's packets (see update_multiplayer_clock_adjust()). */
+#define MULTIPLAYER_CLOCK_ADJUST_MIN 0.5L
+#define MULTIPLAYER_CLOCK_ADJUST_MAX 1.5L
+
 
 /******************************************************************************/
 /*
@@ -452,6 +456,15 @@ static void update_multiplayer_clock_adjust(void)
         // little longer in real time.  Vice-versa if it is early.
         multiplayer_clock_adjust = 1 + (1 - host_packet_received) / 20;
         host_packet_received = 1.0;
+        // After a stall of about a second (21+ turns of process_turn_time when the host packet
+        // arrives) the formula above gives zero or less. process_turn_time then never reaches the
+        // next turn again, this function never runs again, and the game freezes for good while the
+        // host waits for our packets. Keep the adjustment a gentle, positive correction.
+        if (multiplayer_clock_adjust < MULTIPLAYER_CLOCK_ADJUST_MIN) {
+            multiplayer_clock_adjust = MULTIPLAYER_CLOCK_ADJUST_MIN;
+        } else if (multiplayer_clock_adjust > MULTIPLAYER_CLOCK_ADJUST_MAX) {
+            multiplayer_clock_adjust = MULTIPLAYER_CLOCK_ADJUST_MAX;
+        }
     }
     else
     {
