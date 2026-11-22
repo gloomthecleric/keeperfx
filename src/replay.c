@@ -47,6 +47,7 @@
 #include "net_resync.h"
 #include "local_camera.h"
 #include "replay_rewind.h"
+#include "user_roles.h"
 #include "post_inc.h"
 
 #ifdef __cplusplus
@@ -1040,6 +1041,8 @@ void restore_users_from_packet_save(void)
         SYNCLOG("Replay local user %d -> player %d (not in the recorded map)",
             (int)SOLO_HUMAN_ID, (int)my_player_number);
     }
+    // possessor packets must be filtered on playback exactly as they were live
+    apply_user_roles(replay.head.user_roles);
 }
 
 /**
@@ -1569,6 +1572,11 @@ TbBool open_new_packet_file_for_save(void)
         const char *name = network_user_name(user);
         snprintf(replay.head.user_names[user],
             sizeof(replay.head.user_names[user]), "%s", (name != NULL) ? name : "");
+    }
+    for (NetUserId user = 0; user < MAX_NET_USERS; user++)
+    {
+        const struct UserState *ustate = get_user_state(user);
+        replay.head.user_roles[user] = user_state_invalid(ustate) ? UsrRole_Keeper : (int8_t)ustate->role;
     }
     for (int i = 0; i < PLAYERS_COUNT; i++)
     {

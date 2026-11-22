@@ -68,6 +68,7 @@ struct PacketSaveHead {
     signed char recording_user;
     int32_t frontend_alliances;
     char user_names[MAX_NET_USERS][PLAYER_MP_NAME_LEN];
+    int8_t user_roles[MAX_NET_USERS]; // enum UserRole; absent in older replays, which read as all Keepers
 };
 
 #pragma pack()

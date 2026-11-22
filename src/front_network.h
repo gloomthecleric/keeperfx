@@ -39,6 +39,7 @@ extern "C" {
 enum NetPlayerSettingKind {
     NetPlayerSetting_Colour,
     NetPlayerSetting_Team,
+    NetPlayerSetting_Role,
     NetPlayerSetting_Count,
 };
 
@@ -86,6 +87,7 @@ extern char tmp_net_player_name[PLAYER_MP_NAME_LEN+4];
 extern const PlayerNumber net_seat_players[MAX_NET_USERS];
 extern int8_t net_player_colour[MAX_NET_USERS];
 extern int8_t net_player_team[MAX_NET_USERS];
+extern int8_t net_player_role[MAX_NET_USERS];
 extern int32_t net_lobby_max_players;
 extern PlayerBitFlags net_lobby_empty_seats;
 extern LevelNumber net_level;

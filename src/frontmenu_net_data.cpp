@@ -52,6 +52,7 @@
 #include "bflib_inputctrl.h"
 #include "kjm_input.h"
 #include "gui_frontmenu.h"
+#include "user_roles.h"
 #include <ctype.h>
 #include "post_inc.h"
 
@@ -319,14 +320,16 @@ static int32_t draw_lobby_text_right_aligned(int right, int y, int max_width, in
 enum LobbyPlayerColumn {
     LobbyPlayerColumn_Name = 0,
     LobbyPlayerColumn_Team,
+    LobbyPlayerColumn_Role,
     LobbyPlayerColumn_Ping,
     LobbyPlayerColumn_Count,
 };
 
 static const int lobby_columns[] = {10, 277, 377, 478, 578};
-static const int lobby_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 112, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
-static const int coop_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
-static const int skirmish_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET - LOBBY_TEAM_COLUMN_WIDTH, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
+// Each player-column array has LobbyPlayerColumn_Count + 1 entries: the start of every column, then the right edge.
+static const int lobby_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 200, LOBBY_LEFT_WIDTH - 142, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
+static const int coop_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
+static const int skirmish_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET - LOBBY_TEAM_COLUMN_WIDTH, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
 static int lobby_tooltip_index = -1;
 
 static const int *active_player_columns(void)
@@ -343,7 +346,8 @@ static const int *active_player_columns(void)
 static int32_t active_player_column_count(void)
 {
     if (frontnet_service_selected(FrontendNetSvc_Skirmish)) {
-        return LobbyPlayerColumn_Ping;
+        // a skirmish has one human, so neither Role nor Ping applies
+        return LobbyPlayerColumn_Role;
     }
     return LobbyPlayerColumn_Count;
 }
@@ -847,7 +851,7 @@ void frontnet_draw_lobby_players_header(struct GuiButton *gbtn)
         draw_lobby_column_tabs(gbtn, columns, 2, text);
         return;
     }
-    const char *text[] = {get_string(GUIStr_MnuPlayers), get_string(GUIStr_NetTeam), get_string(GUIStr_NetPing)};
+    const char *text[] = {get_string(GUIStr_MnuPlayers), get_string(GUIStr_NetTeam), user_role_column_title(), get_string(GUIStr_NetPing)};
     draw_lobby_column_tabs(gbtn, active_player_columns(), active_player_column_count(), text);
 }
 
@@ -1017,6 +1021,9 @@ static TbBool lobby_player_cell_editable(NetUserId user, int32_t column)
     if (column == LobbyPlayerColumn_Team) {
         return frontend_alliances != -1 && player_editable && net_lobby_primary_user(user) == user;
     }
+    if (column == LobbyPlayerColumn_Role) {
+        return player_editable && !net_lobby_computer_player(user) && (column < active_player_column_count());
+    }
     return false;
 }
 
@@ -1056,6 +1063,8 @@ void frontnet_change_player_setting(struct GuiButton *gbtn)
     enum NetPlayerSettingKind kind = NetPlayerSetting_Colour;
     if (lobby_player_column_at_mouse(gbtn) == LobbyPlayerColumn_Team) {
         kind = NetPlayerSetting_Team;
+    } else if (lobby_player_column_at_mouse(gbtn) == LobbyPlayerColumn_Role) {
+        kind = NetPlayerSetting_Role;
     }
     frontnet_cycle_player_setting(kind, user, gbtn->button_state_right_pressed);
 }
@@ -1075,6 +1084,7 @@ void frontnet_draw_net_start_players(struct GuiButton *gbtn)
     }
     column_x[LobbyPlayerColumn_Name] = gbtn->scr_pos_x + LOBBY_PLAYER_ROW_INSET * gbtn->width / columns[LobbyPlayerColumn_Count];
     TbBool show_ping = LobbyPlayerColumn_Ping < active_player_column_count();
+    TbBool show_role = (LobbyPlayerColumn_Role < active_player_column_count()) && !net_lobby_force_coop();
     NetUserId user_at_mouse = lobby_editable_player_at_mouse(gbtn);
     NetUserId hovered_user = lobby_player_at_mouse(gbtn);
     int32_t column_at_mouse = lobby_player_column_at_mouse(gbtn);
@@ -1118,10 +1128,18 @@ void frontnet_draw_net_start_players(struct GuiButton *gbtn)
             if (team < NET_TEAM_RANDOM) {
                 team_icon = get_frontend_sprite(GFS_team_1 + team);
             }
-            int team_x = (column_x[LobbyPlayerColumn_Team] + column_x[LobbyPlayerColumn_Ping]) / 2 - text_gap - team_icon->SWidth * team_scale / 32;
+            int team_x = (column_x[LobbyPlayerColumn_Team] + column_x[LobbyPlayerColumn_Role]) / 2 - text_gap - team_icon->SWidth * team_scale / 32;
             int team_y = y + (height - team_icon->SHeight * team_scale / 16) / 2;
             RendererSetDrawFlags((team_user != user) ? (draw_flags | Lb_SPRITE_TRANSPAR4) : draw_flags);
             LbSpriteDrawResizedRemap(team_x, team_y, team_scale, team_icon, lobby_highlight_remap(user == user_at_mouse && column_at_mouse == LobbyPlayerColumn_Team));
+        }
+        if (show_role && !computer && (net_player_role[user] >= 0)) {
+            int role_font = font;
+            if (user == user_at_mouse && column_at_mouse == LobbyPlayerColumn_Role) {
+                role_font = frontend_button_caption_font(gbtn, frontend_mouse_over_button);
+            }
+            draw_lobby_text(column_x[LobbyPlayerColumn_Role], y, column_x[LobbyPlayerColumn_Ping] - column_x[LobbyPlayerColumn_Role] - text_gap, height,
+                role_font, draw_flags, 0, user_role_name(net_player_role[user]));
         }
         RendererSetDrawFlags(0);
     }

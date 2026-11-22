@@ -109,6 +109,7 @@
 #include "frontmenu_ingame_map.h"
 #include "lua_triggers.h"
 #include "cursor_tag.h"
+#include "user_roles.h"
 
 #include "keeperfx.hpp"
 #include "post_inc.h"
@@ -1193,6 +1194,19 @@ void process_user_packet(NetUserId user)
     if (flag_is_set(game.operation_flags, GOF_Paused))
         replay_record_paused_action(user, pckt);
     apply_creature_input_packet_values(ustate, pckt);
+    // Archons may only look around, chat and possess (user_roles.c)
+    if (!user_role_allows_packet(user, pckt)) {
+        SYNCDBG(6, "Dropping action %d of archon user %d", (int)pckt->action, (int)user);
+        TbBool had_camera_position = packet_action_has_camera_position(pckt->action);
+        pckt->action = PckA_None;
+        pckt->actn_par1 = 0;
+        pckt->actn_par2 = 0;
+        if (!had_camera_position) {
+            // the union held par3/par4, which must not be read as a camera position
+            packet_clear_camera_position(pckt);
+        }
+    }
+    enforce_user_role_work_state(user);
 
   if (!process_user_global_packet_action(user) && !network_user_is_spectator(user)) {
       // Different changes to the game are possible for different views.

@@ -56,6 +56,7 @@
 #include "config_campaigns.h"
 #include "thing_data.h"
 #include "thing_list.h"
+#include "user_roles.h"
 #include <stddef.h>
 #include <SDL3/SDL.h>
 #include "post_inc.h"
@@ -98,6 +99,7 @@ char tmp_net_player_name[PLAYER_MP_NAME_LEN+4];
 const PlayerNumber net_seat_players[MAX_NET_USERS] = {PLAYER0, PLAYER1, PLAYER2, PLAYER3, PLAYER4, PLAYER5, PLAYER6, PLAYER_GOOD};
 int8_t net_player_colour[MAX_NET_USERS];
 int8_t net_player_team[MAX_NET_USERS];
+int8_t net_player_role[MAX_NET_USERS];
 int32_t net_lobby_max_players;
 PlayerBitFlags net_lobby_empty_seats;
 LevelNumber net_level;
@@ -121,6 +123,7 @@ struct NetPlayerSetting {
 static struct NetPlayerSetting net_player_settings[NetPlayerSetting_Count] = {
     [NetPlayerSetting_Colour] = {net_player_colour, NET_PLAYER_COLOUR_RANDOM + 1, -1},
     [NetPlayerSetting_Team] = {net_player_team, NET_TEAM_RANDOM + 1, -1},
+    [NetPlayerSetting_Role] = {net_player_role, UsrRole_Count, -1},
 };
 
 static TbBool check_frontend_version_mismatch(void);
@@ -400,6 +403,7 @@ static void clear_unoccupied_users(void)
         if (!network_user_active(user) && !net_lobby_computer_player(user)) {
             net_player_colour[user] = -1;
             net_player_team[user] = -1;
+            net_player_role[user] = -1;
         }
     }
 }
@@ -418,6 +422,10 @@ static void host_update_players(void)
         }
         if (net_player_team[user] < 0) {
             net_player_team[user] = first_unused_value(net_player_team);
+        }
+        // computers always keep their own dungeon
+        if ((net_player_role[user] < 0) || net_lobby_computer_player(user)) {
+            net_player_role[user] = UsrRole_Keeper;
         }
     }
 }

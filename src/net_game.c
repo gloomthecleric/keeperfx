@@ -51,6 +51,7 @@
 #include "net_input_lag.h"
 #include "net_filecheck.h"
 #include "net_spectator.h"
+#include "user_roles.h"
 #include "keeperfx.hpp"
 #include "post_inc.h"
 
@@ -70,6 +71,7 @@ struct StartupSyncPacket {
     uint32_t initial_action_seed;
     int32_t frontend_alliances;
     int8_t player_slots[MAX_NET_USERS];
+    int8_t user_roles[MAX_NET_USERS]; // enum UserRole; the host's array is the one applied
     struct LoadedFileChecksums loaded_file_checksums;
 };
 #pragma pack()
@@ -303,6 +305,8 @@ static void setup_players_from_startup_packets(const struct StartupSyncPacket st
         apply_user_start_tendencies(user);
         name_player_after_primary_user(player);
     }
+    // init_user_state() cleared the roles; everyone (spectators too) applies the host's
+    apply_user_roles(startup_sync_packets[SERVER_ID].user_roles);
 }
 
 static struct StartupSyncPacket s_local_startup_sync;
@@ -465,6 +469,7 @@ static void build_local_startup_sync(void)
     net_resolve_player_colours(s_local_startup_sync.player_slots);
     apply_forced_user_players(s_local_startup_sync.player_slots);
     s_local_startup_sync.frontend_alliances = net_alliances_from_player_colours(s_local_startup_sync.player_slots);
+    resolve_seat_roles(s_local_startup_sync.player_slots, net_player_role, s_local_startup_sync.user_roles);
 }
 
 static TbBool setup_network_player_numbers(const int8_t player_slots[MAX_NET_USERS])
@@ -794,7 +799,9 @@ void seat_network_user(NetUserId user, PlayerNumber plyr_idx, const UserPreferen
     if ((get_players_dungeon(player)->computer_enabled & 0x01) != 0) {
         toggle_computer_player(plyr_idx);
     }
+    const int8_t previous_role = user_state_invalid(get_user_state(user)) ? UsrRole_Keeper : (int8_t)get_user_state(user)->role;
     init_user_state(user, plyr_idx, network_user_name(user));
+    restore_user_role_after_reseat(user, previous_role);
     UserPreferences prefs;
     if (!get_startup_user_preferences(user, prefs)) {
         memcpy(prefs, seat_prefs, sizeof(UserPreferences));

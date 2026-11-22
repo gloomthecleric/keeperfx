@@ -131,4 +131,5 @@ SAVE_STRUCT(PacketSaveHead, struct PacketSaveHead,
     SAVE_FIELD(struct PacketSaveHead, recording_user, SV_I8),
     SAVE_FIELD(struct PacketSaveHead, frontend_alliances, SV_I32),
     SAVE_ARRAY2(struct PacketSaveHead, user_names, SV_STR),  /* plain-char */
+    SAVE_ARRAY(struct PacketSaveHead, user_roles, SV_I8),
 );
