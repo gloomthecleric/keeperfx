@@ -39,6 +39,7 @@
 #include "creature_states.h"
 
 #include "power_hand.h"
+#include "soul_transfer.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -307,6 +308,7 @@ struct Dungeon {
     ThingIndex            backup_heart_idx;
     ThingIndex            free_soul_idx;
     struct HandRule       hand_rules[CREATURE_TYPES_MAX][HAND_RULE_SLOTS_COUNT];
+    struct SoulTransfer   soul_transfer; /**< Archon possession cycle of this team, see soul_transfer.c */
 };
 /******************************************************************************/
 extern struct Dungeon bad_dungeon;

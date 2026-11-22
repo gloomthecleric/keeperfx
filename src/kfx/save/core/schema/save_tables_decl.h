@@ -144,6 +144,7 @@ SAVE_DECLARE(SlabMap);
 SAVE_DECLARE(SlabObj);
 SAVE_DECLARE(SlabSet);
 SAVE_DECLARE(SlabsConfig);
+SAVE_DECLARE(SoulTransfer);
 SAVE_DECLARE(SoundSettings);
 SAVE_DECLARE(SpecialConfigStats);
 SAVE_DECLARE(SpeechRef);

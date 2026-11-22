@@ -552,6 +552,8 @@ SAVE_STRUCT(MagicRulesConfig, struct MagicRulesConfig,
     SAVE_FIELD(struct MagicRulesConfig, armageddon_teleport_neutrals, SV_BOOL8),
     SAVE_FIELD(struct MagicRulesConfig, weight_calculate_push, SV_I16),
     SAVE_FIELD(struct MagicRulesConfig, allow_instant_charge_up, SV_BOOL8),
+    SAVE_FIELD(struct MagicRulesConfig, soul_transfer_cooldown, SV_I32),
+    SAVE_FIELD(struct MagicRulesConfig, soul_transfer_decision_time, SV_I32),
 );
 
 SAVE_STRUCT(ManufactureData, struct ManufactureData,

@@ -421,6 +421,16 @@ SAVE_STRUCT(Dungeon, struct Dungeon,
     SAVE_FIELD(struct Dungeon, backup_heart_idx, SV_U16),
     SAVE_FIELD(struct Dungeon, free_soul_idx, SV_U16),
     SAVE_SUB_ARRAY2(struct Dungeon, hand_rules, HandRule),
+    SAVE_SUB(struct Dungeon, soul_transfer, SoulTransfer),
+);
+
+SAVE_STRUCT(SoulTransfer, struct SoulTransfer,
+    SAVE_FIELD(struct SoulTransfer, phase, SV_U8),
+    SAVE_FIELD(struct SoulTransfer, phase_deadline, SV_U32),
+    SAVE_FIELD(struct SoulTransfer, target_idx, SV_U16),
+    SAVE_FIELD(struct SoulTransfer, target_creation, SV_U32),
+    SAVE_FIELD(struct SoulTransfer, sacrifice_idx, SV_U16),
+    SAVE_FIELD(struct SoulTransfer, sacrifice_creation, SV_U32),
 );
 
 SAVE_STRUCT(HandRule, struct HandRule,

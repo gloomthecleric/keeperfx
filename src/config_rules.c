@@ -155,6 +155,8 @@ static const struct NamedField rules_magic_named_fields[] = {
   {"FRIENDLYFIGHTAREADAMAGEPERCENT", 0, field_t(struct RulesConfig, magic.friendly_fight_area_damage_percent),   0, INT32_MIN, INT32_MAX,NULL,value_default, assign_default},
   {"WEIGHTCALCULATEPUSH",            0, field_t(struct RulesConfig, magic.weight_calculate_push),   0,        0, SHRT_MAX,NULL,value_default, assign_default},
   {"ALLOWINSTANTCHARGEUP",           0, field_t(struct RulesConfig, magic.allow_instant_charge_up),   0,        0,        1,NULL,value_default, assign_default},
+  {"SOULTRANSFERCOOLDOWN",           0, field_t(struct RulesConfig, magic.soul_transfer_cooldown),     1200,     0, INT32_MAX,NULL,value_default, assign_default},
+  {"SOULTRANSFERDECISIONTIME",       0, field_t(struct RulesConfig, magic.soul_transfer_decision_time), 140,     1, INT32_MAX,NULL,value_default, assign_default},
   {NULL},
 };
 

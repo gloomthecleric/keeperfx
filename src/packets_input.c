@@ -50,6 +50,7 @@
 #include "cursor_tag.h"
 #include "engine_render.h"
 #include "config_settings.h"
+#include "user_roles.h"
 #include "keeperfx.hpp"
 #include "post_inc.h"
 
@@ -765,6 +766,9 @@ TbBool process_dungeon_control_packet_clicks(NetUserId user)
             if ((pckt->control_flags & PCtr_LBtnRelease) != 0)
             {
                 if (thing_target_action) {
+                    unset_packet_control(pckt, PCtr_LBtnRelease);
+                } else if (user_has_archon_role(user)) {
+                    // an Archon's picks only come from its possess action (soul_transfer.c), already handled
                     unset_packet_control(pckt, PCtr_LBtnRelease);
                 } else if (ustate->thing_under_hand > 0) {
                     magic_use_available_power_on_thing(plyr_idx, user,PwrK_POSSESS, 0, stl_x, stl_y, thing, PwMod_Default);

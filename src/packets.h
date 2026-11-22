@@ -42,7 +42,7 @@ enum TbPacketAction {
         PckA_None = 0,
         PckA_QuitToMainMenu, // Quit
         PckA_ForceApplicationClose,
-        PckA_UnusedSlot003,
+        PckA_SoulTransferAnswer, // Keeper answers an Archon's soul transfer request; par1: 1 approve, 0 refuse
         PckA_NoOperation,
         PckA_FinishGame, // 5
         PckA_Login,      // From `enum NetMessageType`

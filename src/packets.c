@@ -110,6 +110,7 @@
 #include "lua_triggers.h"
 #include "cursor_tag.h"
 #include "user_roles.h"
+#include "soul_transfer.h"
 
 #include "keeperfx.hpp"
 #include "post_inc.h"
@@ -905,6 +906,9 @@ TbBool process_user_global_packet_action(NetUserId user)
   case PckA_SetPlyrState:
       set_user_work_state(user, pckt->actn_par1, pckt->actn_par2);
       return 0;
+  case PckA_SoulTransferAnswer:
+      soul_transfer_keeper_answer(user, pckt->actn_par1 != 0);
+      return 0;
   case PckA_SwitchView:
       set_user_dungeon_view(user, pckt->actn_par1 != 0, pckt->actn_par2 != 0);
       return 0;
@@ -1194,8 +1198,9 @@ void process_user_packet(NetUserId user)
     if (flag_is_set(game.operation_flags, GOF_Paused))
         replay_record_paused_action(user, pckt);
     apply_creature_input_packet_values(ustate, pckt);
-    // Archons may only look around, chat and possess (user_roles.c)
-    if (!user_role_allows_packet(user, pckt)) {
+    // Archons may only look around, chat and possess (user_roles.c);
+    // their possess clicks are soul transfer picks instead (soul_transfer.c)
+    if (soul_transfer_take_archon_pick(user, pckt) || !user_role_allows_packet(user, pckt)) {
         SYNCDBG(6, "Dropping action %d of archon user %d", (int)pckt->action, (int)user);
         TbBool had_camera_position = packet_action_has_camera_position(pckt->action);
         pckt->action = PckA_None;

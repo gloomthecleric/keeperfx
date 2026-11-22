@@ -61,6 +61,7 @@
 #include "timer.h"
 #include "packets.h"
 #include "net_game.h"
+#include "soul_transfer.h"
 #include "post_inc.h"
 
 /******************************************************************************/
@@ -1301,6 +1302,7 @@ void process_players(void)
             wander_point_update(&player->wandr_outside);
             update_power_sight_explored(player);
             update_player_objectives(i);
+            process_soul_transfer(i);
         }
     }
     SYNCDBG(17,"Finished");

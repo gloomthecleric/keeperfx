@@ -141,6 +141,8 @@ struct MagicRulesConfig {
     TbBool armageddon_teleport_neutrals;
     short weight_calculate_push;
     TbBool allow_instant_charge_up;
+    GameTurnDelta soul_transfer_cooldown;      /**< Archon: turns after a possession ends before the next soul transfer. */
+    GameTurnDelta soul_transfer_decision_time; /**< Keeper: turns to answer a soul transfer request before both creatures die. */
 };
 
 struct RoomRulesConfig {
