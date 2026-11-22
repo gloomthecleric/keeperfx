@@ -328,7 +328,8 @@ enum LobbyPlayerColumn {
 static const int lobby_columns[] = {10, 277, 377, 478, 578};
 // Each player-column array has LobbyPlayerColumn_Count + 1 entries: the start of every column, then the right edge.
 static const int lobby_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 200, LOBBY_LEFT_WIDTH - 142, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
-static const int coop_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
+// co-op shares one forced colour and has no teams: Team is zero-width, Role is shown
+static const int coop_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 142, LOBBY_LEFT_WIDTH - 142, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
 static const int skirmish_player_columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET - LOBBY_TEAM_COLUMN_WIDTH, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
 static int lobby_tooltip_index = -1;
 
@@ -846,9 +847,9 @@ void frontnet_draw_lobby_settings_header(struct GuiButton *gbtn)
 void frontnet_draw_lobby_players_header(struct GuiButton *gbtn)
 {
     if (net_lobby_force_coop()) {
-        static const int columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
-        const char *text[] = {get_string(GUIStr_MnuPlayers), get_string(GUIStr_NetPing)};
-        draw_lobby_column_tabs(gbtn, columns, 2, text);
+        static const int columns[] = {LOBBY_COLUMN_TAB_PADDING, LOBBY_LEFT_WIDTH - 142, LOBBY_LEFT_WIDTH - 54, LOBBY_LEFT_WIDTH - LOBBY_HEADER_INSET};
+        const char *text[] = {get_string(GUIStr_MnuPlayers), user_role_column_title(), get_string(GUIStr_NetPing)};
+        draw_lobby_column_tabs(gbtn, columns, 3, text);
         return;
     }
     const char *text[] = {get_string(GUIStr_MnuPlayers), get_string(GUIStr_NetTeam), user_role_column_title(), get_string(GUIStr_NetPing)};
@@ -1013,7 +1014,8 @@ static TbBool lobby_player_cell_editable(NetUserId user, int32_t column)
 {
     TbBool player_editable = user == my_player_number || (network_is_host() && (network_user_active(user) || net_lobby_computer_player(user)));
     if (net_lobby_force_coop()) {
-        return false;
+        // colour and team are forced in co-op; only the role can be chosen
+        return (column == LobbyPlayerColumn_Role) && player_editable && !net_lobby_computer_player(user);
     }
     if (column == LobbyPlayerColumn_Name) {
         return player_editable;
@@ -1084,7 +1086,7 @@ void frontnet_draw_net_start_players(struct GuiButton *gbtn)
     }
     column_x[LobbyPlayerColumn_Name] = gbtn->scr_pos_x + LOBBY_PLAYER_ROW_INSET * gbtn->width / columns[LobbyPlayerColumn_Count];
     TbBool show_ping = LobbyPlayerColumn_Ping < active_player_column_count();
-    TbBool show_role = (LobbyPlayerColumn_Role < active_player_column_count()) && !net_lobby_force_coop();
+    TbBool show_role = (LobbyPlayerColumn_Role < active_player_column_count());
     NetUserId user_at_mouse = lobby_editable_player_at_mouse(gbtn);
     NetUserId hovered_user = lobby_player_at_mouse(gbtn);
     int32_t column_at_mouse = lobby_player_column_at_mouse(gbtn);
